@@ -267,7 +267,7 @@ function partRow(p={}){
 
 function buildSheetHTML(r){
   const q=r.quality||{};
-  const sig=(name,label,cur)=>`<div class="sig" data-sig="${name}">${cur?`<img src="${cur}">`:`<span class="ph">${label}</span>`}</div>`;
+  const sig=(name,label,cur)=>{const ok=cur&&/^data:image\//.test(cur);return `<div class="sig" data-sig="${name}">${ok?`<img src="${cur}">`:`<span class="ph">${label}</span>`}</div>`;};
   let swRows=(r.swRows&&r.swRows.length)?r.swRows.map(x=>({label:x.label||'',value:x.value||''})):Array.from({length:11},()=>({label:'',value:''}));
   const tpl=SW_TEMPLATES[(r.model||'').trim()];
   if(tpl&&tpl.length){
@@ -388,7 +388,7 @@ function buildSheetHTML(r){
       ${parts.map(p=>partRow(p)).join("")}
     </tbody>
   </table>
-  <div class="no-print" style="text-align:right;margin:3px 0 8px">
+  <div class="no-print" data-html2canvas-ignore="true" style="text-align:right;margin:3px 0 8px">
     <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1;padding:4px 10px;font-size:12px" id="btnAddPart">＋ 부품 줄 추가</button>
   </div>
 
@@ -430,7 +430,7 @@ function buildSheetHTML(r){
 }
 
 /* ---------- 폼 읽기 ---------- */
-let current={};
+let current={},formDirty=false;  // formDirty: 저장 안 된 수정사항 여부
 function readForm(){
   const s=$("sheet");
   const rec={...current}; rec.quality={...(current.quality||{})};
@@ -478,9 +478,9 @@ function recalcMoney(){
 }
 
 /* ---------- 서명 패드 ---------- */
-let sigTarget=null,sigCtx=null,drawing=false,sigDirty=false;
+let sigTarget=null,sigCtx=null,drawing=false,sigHasInk=false;
 function openSig(name){
-  sigTarget=name;sigDirty=false;
+  sigTarget=name;sigHasInk=false;
   const labels={sigApprove:"승인 서명",sigCeo:"사장 날인",sigMgr:"과장 날인",sigStaff:"담당 날인"};
   $("sigTitle").textContent=labels[name]||"서명";
   $("sigModal").classList.add("show");
@@ -488,20 +488,32 @@ function openSig(name){
   cv.width=rect.width*dpr;cv.height=220*dpr;
   sigCtx=cv.getContext("2d");sigCtx.scale(dpr,dpr);
   sigCtx.lineWidth=2.4;sigCtx.lineCap="round";sigCtx.lineJoin="round";sigCtx.strokeStyle="#0b2a4a";
-  sigCtx.clearRect(0,0,cv.width,cv.height);
+  // 기존 서명이 있으면 캔버스에 불러오기 (안 그리고 '확인' 눌러도 기존 서명 유지)
+  const cur=current[name];
+  if(cur&&/^data:image\//.test(cur)){
+    const img=new Image();
+    img.onload=()=>{
+      if(sigTarget!==name)return;
+      const w=rect.width,h=220,s=Math.min(w/img.width,h/img.height,1);
+      const dw=img.width*s,dh=img.height*s;
+      sigCtx.drawImage(img,(w-dw)/2,(h-dh)/2,dw,dh);
+      sigHasInk=true;
+    };
+    img.src=cur;
+  }
 }
 function sigPos(e){const cv=$("sigCanvas");const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top};}
 function initSigEvents(){
   const cv=$("sigCanvas");
-  cv.addEventListener("pointerdown",e=>{e.preventDefault();drawing=true;sigDirty=true;const p=sigPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);});
+  cv.addEventListener("pointerdown",e=>{e.preventDefault();drawing=true;sigHasInk=true;const p=sigPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);});
   cv.addEventListener("pointermove",e=>{if(!drawing)return;e.preventDefault();const p=sigPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();});
   window.addEventListener("pointerup",()=>drawing=false);
-  $("sigClear").onclick=()=>{const c=$("sigCanvas");sigCtx.clearRect(0,0,c.width,c.height);sigDirty=false;};
+  $("sigClear").onclick=()=>{const c=$("sigCanvas");sigCtx.save();sigCtx.setTransform(1,0,0,1,0,0);sigCtx.clearRect(0,0,c.width,c.height);sigCtx.restore();sigHasInk=false;};
   $("sigCancel").onclick=()=>$("sigModal").classList.remove("show");
   $("sigSave").onclick=()=>{
     if(sigTarget){
-      const val=sigDirty?$("sigCanvas").toDataURL("image/png"):"";
-      current=readForm();current[sigTarget]=val;
+      const val=sigHasInk?$("sigCanvas").toDataURL("image/png"):"";
+      current=readForm();current[sigTarget]=val;formDirty=true;
       $("sigModal").classList.remove("show");
       $("sheet").innerHTML=buildSheetHTML(current);wireSheet();
     }
@@ -511,11 +523,13 @@ function initSigEvents(){
 /* ---------- 시트 이벤트 ---------- */
 function wireSheet(){
   const s=$("sheet");
+  s.oninput=()=>formDirty=true;   // 모든 입력칸/편집영역 공통
   s.querySelectorAll(".choice").forEach(c=>{
     c.onclick=()=>{
       const wasOn=c.classList.contains("on");
       c.parentElement.querySelectorAll(".choice").forEach(x=>x.classList.remove("on"));
       if(!wasOn) c.classList.add("on");
+      formDirty=true;
     };
   });
   s.querySelectorAll("[data-sig]").forEach(el=>el.onclick=()=>{current=readForm();openSig(el.dataset.sig);});
@@ -524,7 +538,7 @@ function wireSheet(){
     if(SW_TEMPLATES[modelInput.value.trim()]){current=readForm();$("sheet").innerHTML=buildSheetHTML(current);wireSheet();}
   });
   const addBtn=$("btnAddPart");
-  if(addBtn) addBtn.onclick=()=>{current=readForm();current.parts=current.parts||[];current.parts.push({});$("sheet").innerHTML=buildSheetHTML(current);wireSheet();};
+  if(addBtn) addBtn.onclick=()=>{current=readForm();current.parts=current.parts||[];current.parts.push({});formDirty=true;$("sheet").innerHTML=buildSheetHTML(current);wireSheet();};
   // 금액/수량 → 실시간 계산, 금액칸은 blur 때 콤마
   s.querySelectorAll('[data-money],[data-qty]').forEach(el=>{
     el.addEventListener('input',recalcMoney);
@@ -574,6 +588,10 @@ function show(view){
   if(view==="formView"){layoutSheet();setTimeout(layoutSheet,200);}
 }
 function goList(){                       // 검색어 초기화 + 전체 목록
+  if(!$("formView").classList.contains("hidden")&&formDirty){
+    if(!confirm("저장하지 않은 내용이 있습니다. 저장 없이 나갈까요?"))return;
+  }
+  formDirty=false;
   searchTerm="";
   const si=$("searchInput"); if(si) si.value="";
   show("listView"); renderList();
@@ -664,11 +682,13 @@ function newReport(prefill){
   const t=new Date();
   const today={inspY:String(t.getFullYear()),inspM:String(t.getMonth()+1).padStart(2,'0'),inspD:String(t.getDate()).padStart(2,'0')};
   current=Object.assign({quality:{},parts:[{},{},{},{},{}],swRows:Array.from({length:11},()=>({label:'',value:''}))},today,prefill||{});
+  formDirty=false;
   $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
 }
 function editReport(id){
   const r=allReports.find(x=>x.id===id);if(!r)return;
   current=JSON.parse(JSON.stringify(r));
+  formDirty=false;
   $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
 }
 /* 클라이언트에서 A4 PDF 생성 — 기기 상관없이 항상 1장 */
@@ -681,7 +701,11 @@ async function exportPDF(){
     const sheet=$("sheet");
     // input 값을 속성에 반영해야 html2canvas가 글자를 그림
     sheet.querySelectorAll("input").forEach(i=>{ if(i.value!=="") i.setAttribute("value",i.value); });
-    const canvas=await html2canvas(sheet,{scale:2,backgroundColor:"#ffffff",useCORS:true,windowWidth:sheet.scrollWidth});
+    const canvas=await html2canvas(sheet,{scale:2,backgroundColor:"#ffffff",useCORS:true,windowWidth:sheet.scrollWidth,
+      onclone:doc=>{ // 인쇄물과 동일하게: 입력칸 노란 배경 제거, 화면 전용 요소 숨김
+        doc.querySelectorAll("#sheet .u.field").forEach(el=>el.style.background="transparent");
+        doc.querySelectorAll("#sheet .no-print").forEach(el=>el.style.display="none");
+      }});
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
     const PW=210,PH=297,m=6,availW=PW-m*2,availH=PH-m*2;
@@ -707,12 +731,15 @@ async function saveReport(){
   if(!rec.model){toast("성형기 모델을 입력하세요");return;}
   rec.parts=(rec.parts||[]).filter(p=>p.name||p.spec||p.qty||p.price||p.lotNo||p.cost);
   $("btnSave").disabled=true;
-  try{const id=await dbSave(rec);current.id=id;await loadList();toast("저장 완료");}
+  try{const id=await dbSave(rec);current.id=id;formDirty=false;await loadList();toast("저장 완료");}
   catch(e){console.error(e);toast("저장 실패: "+e.message);}
   $("btnSave").disabled=false;
 }
 
 /* ============ 4) 부트스트랩 ============ */
+window.addEventListener("beforeunload",e=>{
+  if(formDirty&&!$("formView").classList.contains("hidden")){e.preventDefault();e.returnValue="";}
+});
 window.addEventListener("DOMContentLoaded",async()=>{
   initSigEvents();
   $("btnHome").onclick=goList;
