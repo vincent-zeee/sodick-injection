@@ -661,7 +661,9 @@ function openHistory(key){
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm("이 보고서를 삭제할까요?")){await dbDelete(b.dataset.del);await loadList();openHistory(key);toast("삭제됨");}});
 }
 function newReport(prefill){
-  current=Object.assign({quality:{},parts:[{},{},{},{},{}],swRows:Array.from({length:11},()=>({label:'',value:''}))},prefill||{});
+  const t=new Date();
+  const today={inspY:String(t.getFullYear()),inspM:String(t.getMonth()+1).padStart(2,'0'),inspD:String(t.getDate()).padStart(2,'0')};
+  current=Object.assign({quality:{},parts:[{},{},{},{},{}],swRows:Array.from({length:11},()=>({label:'',value:''}))},today,prefill||{});
   $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
 }
 function editReport(id){
