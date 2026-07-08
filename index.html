@@ -54,7 +54,7 @@
 
   /* paper */
   .sheet-scroll{overflow-x:auto;padding-bottom:8px;}
-  .sheet{background:var(--paper);width:800px;margin:0 auto;padding:12px 14px 14px;border:1px solid #000;font-size:11px;line-height:1.2;color:#000;}
+  .sheet{background:var(--paper);width:800px;margin:0 auto;padding:14px 16px 18px;border:1px solid #000;font-size:12px;line-height:1.25;color:#000;}
   .sheet .s-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:6px;}
   .sheet .s-title h2{font-size:17px;font-weight:800;letter-spacing:-.5px;}
   .sheet .s-title .no{font-size:11px;display:flex;gap:3px;align-items:center;}
@@ -110,8 +110,9 @@
     .topbar,.formbar,.cloud,.no-print{display:none !important;}
     .wrap{padding:0;max-width:none;}
     .sheet-scroll{overflow:visible;}
-    /* zoom 대신 실제 크기로 A4에 맞춤 → 크롬·사파리 모두 100%에서 1장 */
-    .sheet{width:100%;border:1px solid #000;}
+    /* 데탑 크롬 인쇄용 균일 축소. 한 장에 안 맞으면 0.82로 낮추고, 너무 작으면 0.9로.
+       (패드/사파리는 이 zoom을 무시하므로, 패드에선 '📄 PDF 저장' 버튼을 쓰세요.) */
+    .sheet{width:100%;zoom:0.86;border:1px solid #000;}
     .edit{overflow:visible !important;}
     .u.field{background:transparent !important;}
     .choice:not(.on){opacity:.35;text-decoration:none;}
@@ -150,7 +151,8 @@
 
 <div class="formbar hidden" id="formBar">
   <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1" id="btnBack">← 목록</button>
-  <button class="btn" id="btnPrint">🖨 인쇄 / PDF</button>
+  <button class="btn" id="btnPdf">📄 PDF 저장</button>
+  <button class="btn" id="btnPrint">🖨 인쇄</button>
   <button class="btn dark" id="btnSave">저장</button>
 </div>
 
@@ -171,6 +173,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ============ 1) FIREBASE 설정 (여기에 키 붙여넣기) ============ */
 const firebaseConfig = {
@@ -246,7 +250,7 @@ function pickChip(name,val,opts){ // 칩 (작업현황/비용)
 const SW_PH=Array(11).fill('');  // 라벨 힌트 제거 — 전부 공란
 function swRowsHTML(rows){
   return rows.map((row,i)=>`<tr>
-    <td style="width:88px;padding:0;height:18px"><input class="u field center" data-swk="${i}" value="${esc(row.label)}" placeholder="${SW_PH[i]||''}"></td>
+    <td style="width:88px;padding:0;height:26px"><input class="u field center" data-swk="${i}" value="${esc(row.label)}" placeholder="${SW_PH[i]||''}"></td>
     <td style="padding:0"><input class="u field mono" data-swv="${i}" value="${esc(row.value)}"></td>
   </tr>`).join('');
 }
@@ -331,7 +335,7 @@ function buildSheetHTML(r){
         <table class="f" style="border:none">
           <tr>
             <td class="lab jf" style="width:48px">의뢰<br>내용</td>
-            <td><div class="u field edit" contenteditable="true" data-f="requestContent" style="min-height:140px">${esc(r.requestContent)}</div></td>
+            <td><div class="u field edit" contenteditable="true" data-f="requestContent" style="min-height:190px">${esc(r.requestContent)}</div></td>
           </tr>
           <tr>
             <td class="lab jf" style="width:48px">처리<br>내용</td>
@@ -341,15 +345,15 @@ function buildSheetHTML(r){
       </td>
       <td style="padding:0;vertical-align:top">
         <table class="f" style="border:none">
-          <tr><td colspan="2" class="lab" style="height:20px">Software version</td></tr>
+          <tr><td colspan="2" class="lab" style="height:24px">Software version</td></tr>
           ${swRowsHTML(swRows)}
-          <tr><td class="lab sm" style="width:88px;height:20px">Screw 경</td><td>φ <input class="u field mono" style="width:60px" data-f="screw" value="${esc(r.screw)}"></td></tr>
-          <tr><td class="lab sm" style="height:20px">Plunger 경</td><td>φ <input class="u field mono" style="width:60px" data-f="plunger" value="${esc(r.plunger)}"></td></tr>
-          <tr><td class="lab sm jf" style="height:26px">작업상황</td><td class="center">${pickChip('workStatus',r.workStatus,[{v:'완료',label:'완료'},{v:'미완료',label:'미완료'}])}</td></tr>
-          <tr><td class="lab sm jf" style="height:26px">비용</td><td class="center">${pickChip('costType',r.costType,[{v:'유상',label:'유상'},{v:'무상',label:'무상'}])}</td></tr>
-          <tr><td class="lab sm jf" style="height:22px">공임</td><td class="nowrap"><input class="u field mono" style="width:80%;text-align:right" data-f="laborCost" data-money value="${comma(r.laborCost)}"> 원</td></tr>
-          <tr><td class="lab sm jf" style="height:22px">부품가격</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="partsCost" data-calc readonly value="${comma(r.partsCost)}"> 원</td></tr>
-          <tr><td class="lab sm jf" style="height:22px">합계</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="totalCost" data-calc readonly value="${comma(r.totalCost)}"> 원</td></tr>
+          <tr><td class="lab sm" style="width:88px;height:26px">Screw 경</td><td>φ <input class="u field mono" style="width:60px" data-f="screw" value="${esc(r.screw)}"></td></tr>
+          <tr><td class="lab sm" style="height:26px">Plunger 경</td><td>φ <input class="u field mono" style="width:60px" data-f="plunger" value="${esc(r.plunger)}"></td></tr>
+          <tr><td class="lab sm jf" style="height:30px">작업상황</td><td class="center">${pickChip('workStatus',r.workStatus,[{v:'완료',label:'완료'},{v:'미완료',label:'미완료'}])}</td></tr>
+          <tr><td class="lab sm jf" style="height:30px">비용</td><td class="center">${pickChip('costType',r.costType,[{v:'유상',label:'유상'},{v:'무상',label:'무상'}])}</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">공임</td><td class="nowrap"><input class="u field mono" style="width:80%;text-align:right" data-f="laborCost" data-money value="${comma(r.laborCost)}"> 원</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">부품가격</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="partsCost" data-calc readonly value="${comma(r.partsCost)}"> 원</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">합계</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="totalCost" data-calc readonly value="${comma(r.totalCost)}"> 원</td></tr>
         </table>
       </td>
     </tr>
@@ -665,6 +669,29 @@ function editReport(id){
   current=JSON.parse(JSON.stringify(r));
   $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
 }
+/* 클라이언트에서 A4 PDF 생성 — 기기 상관없이 항상 1장 */
+async function exportPDF(){
+  if(typeof html2canvas==="undefined"||!window.jspdf){toast("PDF 라이브러리 로딩 중… 잠시 후 다시");return;}
+  const btn=$("btnPdf");const old=btn.textContent;btn.disabled=true;btn.textContent="만드는 중…";
+  try{
+    current=readForm();$("sheet").innerHTML=buildSheetHTML(current);wireSheet();
+    await new Promise(r=>setTimeout(r,400));            // 레이아웃 안정 대기
+    const sheet=$("sheet");
+    // input 값을 속성에 반영해야 html2canvas가 글자를 그림
+    sheet.querySelectorAll("input").forEach(i=>{ if(i.value!=="") i.setAttribute("value",i.value); });
+    const canvas=await html2canvas(sheet,{scale:2,backgroundColor:"#ffffff",useCORS:true,windowWidth:sheet.scrollWidth});
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
+    const PW=210,PH=297,m=6,availW=PW-m*2,availH=PH-m*2;
+    let w=availW,h=canvas.height*availW/canvas.width;
+    if(h>availH){h=availH;w=canvas.width*availH/canvas.height;}   // 세로가 넘치면 세로 기준으로 축소
+    pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",(PW-w)/2,m,w,h);
+    const fname=("소딕보고서_"+(current.model||"")+"_"+(current.hogi||"")).replace(/\s+/g,"")+".pdf";
+    pdf.save(fname);
+    toast("PDF 저장됨");
+  }catch(e){console.error(e);toast("PDF 실패: "+e.message);}
+  btn.disabled=false;btn.textContent=old;
+}
 async function saveReport(){
   const rec=readForm();
   if(!rec.model){toast("성형기 모델을 입력하세요");return;}
@@ -682,6 +709,7 @@ window.addEventListener("DOMContentLoaded",async()=>{
   $("btnNew").onclick=()=>newReport();
   $("btnBack").onclick=goList;
   $("btnSave").onclick=saveReport;
+  $("btnPdf").onclick=exportPDF;
   $("btnSeed").onclick=seedDummy;
   $("btnClear").onclick=clearAll;
   $("btnPrint").onclick=()=>{current=readForm();$("sheet").innerHTML=buildSheetHTML(current);wireSheet();setTimeout(()=>window.print(),120);};
