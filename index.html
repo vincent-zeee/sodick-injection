@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>소딕 설치·수리·작업 보고서</title>
+<style>
+  :root{
+    --ink:#111; --line:#333; --muted:#6b7280;
+    --bg:#eef1ef; --paper:#fff; --accent:#00913A; --accent-soft:#e6f4ea; --field:#fffbe8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--bg);color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;}
+  input,textarea,button,select{font-family:inherit;font-size:inherit;color:inherit;}
+
+  /* chrome */
+  .topbar{position:sticky;top:0;z-index:50;background:var(--accent);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;}
+  .topbar h1{font-size:15px;font-weight:700;letter-spacing:.5px;}
+  .topbar .spacer{flex:1;}
+  .btn{border:none;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;background:#fff;color:var(--accent);}
+  .btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);}
+  .btn.warn{background:#b3261e;color:#fff;}
+  .btn.dark{background:var(--accent);color:#fff;}
+  .btn:active{transform:translateY(1px);}
+  .search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:8px;padding:6px 10px;min-width:230px;flex:1;max-width:420px;}
+  .search input{border:none;outline:none;flex:1;font-size:14px;}
+  .search svg{flex:none;color:var(--muted);}
+  .wrap{max-width:960px;margin:0 auto;padding:16px 12px 90px;}
+  .cloud{font-size:12px;color:var(--muted);margin:4px 2px 12px;display:flex;align-items:center;gap:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#c33;flex:none;}
+  .dot.on{background:#2e7d32;}
+
+  /* list */
+  .machine-card{background:#fff;border:1px solid #dfe3e8;border-radius:12px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:box-shadow .15s;}
+  .machine-card:hover{box-shadow:0 3px 14px rgba(0,0,0,.08);}
+  .machine-card .m-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .machine-card .m-model{font-size:17px;font-weight:800;}
+  .machine-card .m-sn{font-size:13px;color:var(--muted);font-family:"Courier New",monospace;}
+  .machine-card .m-meta{font-size:13px;color:#374151;margin-top:6px;}
+  .badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;}
+  .empty{text-align:center;color:var(--muted);padding:60px 20px;}
+  .empty svg{opacity:.4;margin-bottom:10px;}
+  .hist-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .hist-head .h-model{font-size:20px;font-weight:800;}
+  .rep-row{background:#fff;border:1px solid #dfe3e8;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
+  .rep-row:hover{background:#fafbfc;}
+  .rep-row .r-date{font-weight:700;font-variant-numeric:tabular-nums;}
+  .rep-row .r-sum{font-size:13px;color:#374151;margin-top:3px;max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .r-status{font-size:12px;font-weight:700;padding:2px 9px;border-radius:6px;}
+  .st-done{background:#e7f5e9;color:#1b7a2e;}
+  .st-open{background:#fdeaea;color:#b3261e;}
+
+  /* paper */
+  .sheet-scroll{overflow-x:auto;padding-bottom:8px;}
+  .sheet{background:var(--paper);width:800px;margin:0 auto;padding:14px 16px 18px;border:1px solid #000;font-size:12px;line-height:1.25;color:#000;}
+  .sheet .s-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:6px;}
+  .sheet .s-title h2{font-size:17px;font-weight:800;letter-spacing:-.5px;}
+  .sheet .s-title .no{font-size:11px;display:flex;gap:3px;align-items:center;}
+  table.f{border-collapse:collapse;width:100%;}
+  table.f td,table.f th{border:1px solid #000;padding:2px 4px;vertical-align:middle;}
+  .lab{background:#f2f2f2;font-weight:700;text-align:center;white-space:nowrap;}
+  .lab.sm{font-size:11px;}
+  .lab.jf{text-align:justify;text-align-last:justify;}
+  table.f td.lab{vertical-align:middle;}
+  .edit{white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;outline:none;min-height:1em;cursor:text;}
+  .calc{background:#f4f7f4 !important;color:#111;}
+  .u{border:none;outline:none;width:100%;background:transparent;padding:2px 2px;}
+  .u.field{background:var(--field);}
+  textarea.u{resize:vertical;line-height:1.35;display:block;}
+  .center{text-align:center;}
+  .mono{font-family:"Courier New",monospace;}
+  .nowrap{white-space:nowrap;}
+
+  /* inline choice (quality / parts) */
+  .choice{cursor:pointer;user-select:none;padding:0 3px;font-weight:400;color:#666;}
+  .choice.on{color:#000;font-weight:800;}
+  .pick{display:inline-flex;gap:2px;align-items:center;}
+  .pick .sep{color:#000;}
+
+  /* chip choice (작업현황 / 비용) */
+  .chip{display:inline-block;padding:4px 16px;border:1.5px solid #b6bcc6;border-radius:7px;margin:2px 4px;cursor:pointer;font-weight:700;color:#7a828e;background:#fff;user-select:none;}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.2);}
+
+  .sig{position:relative;height:46px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .sig img{max-height:44px;max-width:100%;}
+  .sig .ph{color:#b0b0b0;font-size:11px;}
+  .stampcell{height:52px;}
+  .ttl-bar{background:#f2f2f2;text-align:center;font-weight:800;letter-spacing:2px;padding:3px;border:1px solid #000;border-top:none;}
+  .foot{font-size:10.5px;line-height:1.5;margin-top:4px;}
+  .foot .rowf{display:flex;justify-content:space-between;gap:10px;}
+
+  .formbar{position:sticky;bottom:0;z-index:40;background:#fff;border-top:1px solid #dfe3e8;display:flex;gap:8px;padding:10px 12px;justify-content:flex-end;flex-wrap:wrap;}
+  .formbar .btn{font-size:15px;}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:16px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:14px;padding:16px;width:min(560px,96vw);}
+  .modal h3{font-size:16px;margin-bottom:10px;}
+  .padwrap{border:2px dashed #b8c0cc;border-radius:10px;background:#fcfcfd;touch-action:none;}
+  .padwrap canvas{display:block;width:100%;height:220px;border-radius:10px;}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:24px;font-size:14px;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .hidden{display:none !important;}
+
+  @media print{
+    @page{size:A4 portrait;margin:5mm;}
+    .topbar,.formbar,.cloud,.no-print{display:none !important;}
+    .wrap{padding:0;max-width:none;}
+    .sheet-scroll{overflow:visible;}
+    /* 요소별로 줄이지 않고 전체를 균일 축소 → 날인칸 비율 유지 + 한 장에 맞춤.
+       한 장에 안 맞으면 이 zoom 값을 조금 낮추고, 너무 작으면 0.9~0.95로 올리세요. */
+    .sheet{width:100%;zoom:0.86;border:1px solid #000;}
+    .edit{overflow:visible !important;}
+    .u.field{background:transparent !important;}
+    .choice:not(.on){opacity:.35;text-decoration:none;}
+    .chip{border-color:#000;}
+    .chip:not(.on){opacity:.4;color:#000;}
+    .chip.on{background:#000 !important;color:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>소딕 서비스 보고서</h1>
+  <div class="search no-print" id="searchWrap">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><line x1="14" y1="14" x2="18" y2="18" stroke-linecap="round"/></svg>
+    <input id="searchInput" placeholder="성형기 모델 · 호기(S/N) 검색">
+  </div>
+  <div class="spacer"></div>
+  <button class="btn ghost no-print" id="btnHome">목록</button>
+  <button class="btn no-print" id="btnNew">＋ 새 보고서</button>
+</div>
+
+<div class="wrap">
+  <div class="cloud" id="cloud"><span class="dot" id="cloudDot"></span><span id="cloudTxt">저장소 확인 중…</span></div>
+  <div class="no-print" id="devbar" style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="btn" style="background:#eef4ff;color:var(--accent);font-size:13px;padding:7px 12px" id="btnSeed">🧪 더미 10개 추가</button>
+    <button class="btn warn" style="font-size:13px;padding:7px 12px" id="btnClear">🗑 전체 삭제</button>
+  </div>
+  <div id="listView"></div>
+  <div id="histView" class="hidden"></div>
+  <div id="formView" class="hidden">
+    <div class="sheet-scroll"><div class="sheet" id="sheet"></div></div>
+  </div>
+</div>
+
+<div class="formbar hidden" id="formBar">
+  <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1" id="btnBack">← 목록</button>
+  <button class="btn" id="btnPrint">🖨 인쇄 / PDF</button>
+  <button class="btn dark" id="btnSave">저장</button>
+</div>
+
+<div class="modal-bg" id="sigModal">
+  <div class="modal">
+    <h3 id="sigTitle">서명</h3>
+    <div class="padwrap"><canvas id="sigCanvas"></canvas></div>
+    <div class="modal-actions">
+      <button class="btn warn" id="sigClear">지우기</button>
+      <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1" id="sigCancel">취소</button>
+      <button class="btn dark" id="sigSave">확인</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+/* ============ 1) FIREBASE 설정 (여기에 키 붙여넣기) ============ */
+const firebaseConfig = {
+  apiKey: "", authDomain: "", projectId: "",
+  storageBucket: "", messagingSenderId: "", appId: ""
+};
+
+/* ============ 1-2) 성형기 모델별 소프트웨어 항목 목록 ============
+   성형기 모델을 입력/선택하면, 아래 목록에 맞춰 소프트웨어 버전 라벨이
+   자동으로 채워집니다. (기존에 입력한 값은 안 지움)
+   ※ 어떤 모델에 어떤 항목이 있는지는 동생이 확인 후 채우세요.
+   예)
+   "TR100VRG": ["HMI","IF-HMI","MDC-SH","IF-SH","MP","MP-Firm","HMI-BOOT","OS"],
+   지금은 비어 있어서 라벨은 전부 공란으로 나옵니다.                     */
+const SW_TEMPLATES = {
+  // "모델명": ["항목1","항목2", ...],
+};
+
+/* ---------- 데이터 계층 ---------- */
+let db=null, useCloud=false;
+const LS_KEY="sodick-reports";
+async function initDB(){
+  if(firebaseConfig.apiKey){
+    try{
+      firebase.initializeApp(firebaseConfig);
+      db=firebase.firestore();
+      await firebase.auth().signInAnonymously();
+      useCloud=true; setCloud(true,"Firebase 동기화 켜짐");
+    }catch(e){console.error(e);useCloud=false;setCloud(false,"Firebase 연결 실패 · 이 기기에만 저장");}
+  }else{useCloud=false;setCloud(false,"로컬 저장(테스트) · Firebase 키 입력 시 동기화");}
+}
+function setCloud(on,txt){$("cloudDot").classList.toggle("on",on);$("cloudTxt").textContent=txt;}
+async function dbGetAll(){
+  if(useCloud){const s=await db.collection("reports").orderBy("updatedAt","desc").get();return s.docs.map(d=>({id:d.id,...d.data()}));}
+  const raw=localStorage.getItem(LS_KEY);const arr=raw?JSON.parse(raw):[];
+  return arr.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+}
+async function dbSave(rec){
+  rec.updatedAt=Date.now(); if(!rec.createdAt)rec.createdAt=rec.updatedAt;
+  if(useCloud){
+    if(rec.id){const id=rec.id;const {id:_,...data}=rec;await db.collection("reports").doc(id).set(data);return id;}
+    const ref=await db.collection("reports").add(rec);return ref.id;
+  }
+  const arr=JSON.parse(localStorage.getItem(LS_KEY)||"[]");
+  if(rec.id){const i=arr.findIndex(x=>x.id===rec.id);if(i>=0)arr[i]=rec;else arr.push(rec);}
+  else{rec.id="loc_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);arr.push(rec);}
+  localStorage.setItem(LS_KEY,JSON.stringify(arr));return rec.id;
+}
+async function dbDelete(id){
+  if(useCloud){await db.collection("reports").doc(id).delete();return;}
+  const arr=JSON.parse(localStorage.getItem(LS_KEY)||"[]").filter(x=>x.id!==id);
+  localStorage.setItem(LS_KEY,JSON.stringify(arr));
+}
+
+/* ---------- utils ---------- */
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800);}
+function esc(s){return (s??"").toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function num(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
+function comma(v){const n=num(v);return n?n.toLocaleString('en-US'):'';}
+
+/* ============ 2) 폼 재현 ============ */
+function pick(name,val,opts){ // 인라인 (품질/부품)
+  return `<span class="pick" data-pick="${name}">`+
+    opts.map((o,i)=>`${i?'<span class="sep">·</span>':''}<span class="choice ${val===o.v?'on':''}" data-name="${name}" data-val="${o.v}">${o.label}</span>`).join('')+
+    `</span>`;
+}
+function pickChip(name,val,opts){ // 칩 (작업현황/비용)
+  return `<span class="pick" data-pick="${name}">`+
+    opts.map(o=>`<span class="chip choice ${val===o.v?'on':''}" data-name="${name}" data-val="${o.v}">${o.label}</span>`).join('')+
+    `</span>`;
+}
+const SW_PH=Array(11).fill('');  // 라벨 힌트 제거 — 전부 공란
+function swRowsHTML(rows){
+  return rows.map((row,i)=>`<tr>
+    <td style="width:88px;padding:0;height:26px"><input class="u field center" data-swk="${i}" value="${esc(row.label)}" placeholder="${SW_PH[i]||''}"></td>
+    <td style="padding:0"><input class="u field mono" data-swv="${i}" value="${esc(row.value)}"></td>
+  </tr>`).join('');
+}
+function partRow(p={}){
+  return `<tr class="partrow">
+    <td><input class="u field" data-p="name" value="${esc(p.name)}"></td>
+    <td><input class="u field" data-p="spec" value="${esc(p.spec)}"></td>
+    <td class="center"><input class="u field center" data-p="qty" data-qty value="${esc(p.qty)}"></td>
+    <td class="center"><input class="u field center mono" data-p="price" data-money value="${comma(p.price)}"></td>
+    <td><input class="u field" data-p="lotNo" value="${esc(p.lotNo)}"></td>
+    <td class="center">${pick("_p_cost_"+(p._i||0), p.cost||"", [{v:"유",label:"유"},{v:"무",label:"무"}])}</td>
+  </tr>`;
+}
+
+function buildSheetHTML(r){
+  const q=r.quality||{};
+  const sig=(name,label,cur)=>`<div class="sig" data-sig="${name}">${cur?`<img src="${cur}">`:`<span class="ph">${label}</span>`}</div>`;
+  let swRows=(r.swRows&&r.swRows.length)?r.swRows.map(x=>({label:x.label||'',value:x.value||''})):Array.from({length:11},()=>({label:'',value:''}));
+  const tpl=SW_TEMPLATES[(r.model||'').trim()];
+  if(tpl&&tpl.length){
+    for(let i=0;i<tpl.length;i++){ if(!swRows[i]) swRows[i]={label:'',value:''}; if(!swRows[i].label) swRows[i].label=tpl[i]; }
+  }
+  const parts=(r.parts&&r.parts.length?r.parts:[{},{},{},{},{}]).map((p,i)=>({...p,_i:i}));
+
+  return `
+  <div class="s-title">
+    <h2>설치 · 수리 · 작업 보고서 <span style="font-size:13px">(주)소딕코리아</span></h2>
+    <div class="no">관리No.
+      <input class="u field center" style="width:42px" data-f="gwanri1" value="${esc(r.gwanri1)}">-<input class="u field center" style="width:42px" data-f="gwanri2" value="${esc(r.gwanri2)}">-<input class="u field center" style="width:42px" data-f="gwanri3" value="${esc(r.gwanri3)}">
+    </div>
+  </div>
+
+  <!-- 상단 블록 -->
+  <table class="f">
+    <colgroup>
+      <col style="width:70px"><col><col style="width:50px"><col style="width:110px">
+      <col style="width:70px"><col><col style="width:62px"><col style="width:28px">
+    </colgroup>
+    <tr>
+      <td class="lab jf">회사명</td><td><input class="u field" data-f="companyName" value="${esc(r.companyName)}"></td>
+      <td class="lab" rowspan="5">承認<br>(승인)</td>
+      <td rowspan="5" class="center stampcell">${sig('sigApprove','서명',r.sigApprove)}</td>
+      <td class="lab jf">성형기</td><td><input class="u field" data-f="model" value="${esc(r.model)}"></td>
+      <td><input class="u field mono" data-f="hogi" value="${esc(r.hogi)}"></td><td class="lab sm jf">호기</td>
+    </tr>
+    <tr>
+      <td class="lab jf">부서명</td><td><input class="u field" data-f="dept" value="${esc(r.dept)}"></td>
+      <td class="lab sm jf" style="color:#b3261e">고객호기</td><td colspan="2"><input class="u field mono" data-f="customerHogi" value="${esc(r.customerHogi)}"></td><td class="lab sm jf">호기</td>
+    </tr>
+    <tr>
+      <td class="lab jf">담당자</td><td><input class="u field" data-f="manager" value="${esc(r.manager)}"></td>
+      <td class="lab jf">전원</td><td colspan="2"><input class="u field mono" data-f="powerHogi" value="${esc(r.powerHogi)}"></td><td class="lab sm jf">호기</td>
+    </tr>
+    <tr>
+      <td class="lab">TEL</td><td><input class="u field mono" data-f="tel" value="${esc(r.tel)}"></td>
+      <td class="lab sm">Total Shot</td><td colspan="2"><input class="u field mono" data-f="totalShot" value="${esc(r.totalShot)}"></td><td class="lab sm">Shot</td>
+    </tr>
+    <tr>
+      <td class="lab jf">주소</td><td><input class="u field" data-f="address" value="${esc(r.address)}"></td>
+      <td class="lab sm">Total Time</td><td colspan="2"><input class="u field mono" data-f="totalTime" value="${esc(r.totalTime)}"></td><td class="lab sm">H</td>
+    </tr>
+    <tr>
+      <td class="lab jf">점검일</td>
+      <td colspan="3" class="nowrap"><input class="u field mono" style="width:52px" data-f="inspY" value="${esc(r.inspY)}">년 <input class="u field mono" style="width:26px" data-f="inspM" value="${esc(r.inspM)}">월 <input class="u field mono" style="width:26px" data-f="inspD" value="${esc(r.inspD)}">일</td>
+      <td class="lab sm jf">제조년월일</td>
+      <td colspan="3" class="nowrap"><input class="u field mono" style="width:48px" data-f="mfgY" value="${esc(r.mfgY)}">년 <input class="u field mono" style="width:24px" data-f="mfgM" value="${esc(r.mfgM)}">월 <input class="u field mono" style="width:24px" data-f="mfgD" value="${esc(r.mfgD)}">일</td>
+    </tr>
+    <tr>
+      <td class="lab jf">점검자</td><td colspan="3"><input class="u field" data-f="inspector" value="${esc(r.inspector)}"></td>
+      <td class="lab sm jf">사용수지</td><td colspan="3"><input class="u field" data-f="resin" value="${esc(r.resin)}"></td>
+    </tr>
+    <tr>
+      <td class="lab jf">지역</td><td colspan="7"><input class="u field" data-f="region" value="${esc(r.region)}"></td>
+    </tr>
+  </table>
+
+  <!-- 본문: 왼쪽 의뢰/처리 (2/3) | 오른쪽 소프트웨어/작업상황 (1/3) -->
+  <table class="f" style="border-top:none">
+    <colgroup><col style="width:66.7%"><col style="width:33.3%"></colgroup>
+    <tr>
+      <td style="padding:0;vertical-align:top">
+        <table class="f" style="border:none">
+          <tr>
+            <td class="lab jf" style="width:48px">의뢰<br>내용</td>
+            <td><div class="u field edit" contenteditable="true" data-f="requestContent" style="min-height:190px">${esc(r.requestContent)}</div></td>
+          </tr>
+          <tr>
+            <td class="lab jf" style="width:48px">처리<br>내용</td>
+            <td><div class="u field edit" contenteditable="true" data-f="processContent" style="min-height:90px">${esc(r.processContent)}</div></td>
+          </tr>
+        </table>
+      </td>
+      <td style="padding:0;vertical-align:top">
+        <table class="f" style="border:none">
+          <tr><td colspan="2" class="lab" style="height:24px">Software version</td></tr>
+          ${swRowsHTML(swRows)}
+          <tr><td class="lab sm" style="width:88px;height:26px">Screw 경</td><td>φ <input class="u field mono" style="width:60px" data-f="screw" value="${esc(r.screw)}"></td></tr>
+          <tr><td class="lab sm" style="height:26px">Plunger 경</td><td>φ <input class="u field mono" style="width:60px" data-f="plunger" value="${esc(r.plunger)}"></td></tr>
+          <tr><td class="lab sm jf" style="height:30px">작업상황</td><td class="center">${pickChip('workStatus',r.workStatus,[{v:'완료',label:'완료'},{v:'미완료',label:'미완료'}])}</td></tr>
+          <tr><td class="lab sm jf" style="height:30px">비용</td><td class="center">${pickChip('costType',r.costType,[{v:'유상',label:'유상'},{v:'무상',label:'무상'}])}</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">공임</td><td class="nowrap"><input class="u field mono" style="width:80%;text-align:right" data-f="laborCost" data-money value="${comma(r.laborCost)}"> 원</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">부품가격</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="partsCost" data-calc readonly value="${comma(r.partsCost)}"> 원</td></tr>
+          <tr><td class="lab sm jf" style="height:26px">합계</td><td class="nowrap"><input class="u field mono calc" style="width:80%;text-align:right" data-f="totalCost" data-calc readonly value="${comma(r.totalCost)}"> 원</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- 품질유지제안 -->
+  <table class="f" style="border-top:none">
+    <tr>
+      <td class="lab jf" rowspan="2" style="width:70px">품질<br>유지제안</td>
+      <td>■작업유교환 ${pick("q_oilChange",q.oilChange,[{v:"필요",label:"필요"},{v:"불요",label:"불요"}])}</td>
+      <td>■Element ${pick("q_element",q.element,[{v:"필요",label:"필요"},{v:"불요",label:"불요"}])}</td>
+      <td>■유온 <input class="u field mono" style="width:40px" data-q="oilTemp" value="${esc(q.oilTemp)}">℃</td>
+      <td>■ZH ${pick("q_zh",q.zh,[{v:"OK",label:"OK"},{v:"NG",label:"NG"}])}</td>
+      <td>■ACC질소Gas ${pick("q_accGas",q.accGas,[{v:"필요",label:"필요"},{v:"불요",label:"불요"}])}</td>
+    </tr>
+    <tr>
+      <td colspan="3">■카트리지 윤활유교환 및 윤활유UP ${pick("q_cartridge",q.cartridge,[{v:"필요",label:"필요"},{v:"불요",label:"불요"}])}</td>
+      <td colspan="2">■Shutdown화면설명 ${pick("q_shutdown",q.shutdown,[{v:"OK",label:"OK"},{v:"NG",label:"NG"}])}</td>
+    </tr>
+  </table>
+
+  <!-- 사용부품 -->
+  <table class="f" style="border-top:none" id="partsTable">
+    <colgroup>
+      <col style="width:34px"><col><col style="width:150px"><col style="width:46px"><col style="width:94px"><col style="width:100px"><col style="width:56px">
+    </colgroup>
+    <tbody id="partsBody">
+      <tr>
+        <td class="lab jf" rowspan="${parts.length+1}">사용<br>부품</td>
+        <td class="lab jf">부품명</td><td class="lab">사 양</td><td class="lab jf">수량</td><td class="lab jf">단가</td><td class="lab">Lot No</td><td class="lab">비 용</td>
+      </tr>
+      ${parts.map(p=>partRow(p)).join("")}
+    </tbody>
+  </table>
+  <div class="no-print" style="text-align:right;margin:3px 0 8px">
+    <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1;padding:4px 10px;font-size:12px" id="btnAddPart">＋ 부품 줄 추가</button>
+  </div>
+
+  <div class="ttl-bar">Service 계산서</div>
+  <table class="f" style="border-top:none">
+    <tr>
+      <td class="lab jf" style="width:70px">작업시간</td>
+      <td class="nowrap"><input class="u field mono" style="width:110px" data-f="workTimeFrom" value="${esc(r.workTimeFrom)}"> ~ <input class="u field mono" style="width:110px" data-f="workTimeTo" value="${esc(r.workTimeTo)}"> ➡ <input class="u field mono" style="width:32px" data-f="workHours" value="${esc(r.workHours)}">시간 <input class="u field mono" style="width:32px" data-f="workMinutes" value="${esc(r.workMinutes)}">분 <span style="font-size:10px;color:#666">(1H이내 사사오입)</span></td>
+    </tr>
+    <tr><td class="lab jf">작업비</td><td style="font-size:11px;line-height:1.5">a. 기본 2시간 : 지역별 왕복거리 요금에 포함<br>b. 추가작업비 : 시간 × KW 30,000<br>c. 심야(17:30이후), 휴일 작업시 기본요금과 초과요금 모두 50% up</td></tr>
+    <tr><td class="lab jf">지역별<br>왕복거리<br>요금</td><td style="padding:0">
+      <table class="f" style="border:none">
+        <tr><td>50Km 미만 : KW 150,000</td><td>300Km 미만 : KW 350,000</td></tr>
+        <tr><td>100Km 미만 : KW 230,000</td><td>300Km 이상 : KW 450,000</td></tr>
+        <tr><td>150Km 미만 : KW 280,000</td><td></td></tr>
+      </table></td></tr>
+  </table>
+
+  <table class="f" style="border-top:none">
+    <tr>
+      <td class="lab jf" rowspan="2" style="width:34px">결재</td>
+      <td class="lab jf" style="width:92px">사장</td><td class="lab jf" style="width:92px">과장</td><td class="lab jf" style="width:92px">담당</td>
+      <td rowspan="2" style="width:212px;font-size:10px;line-height:1.5;text-align:center;vertical-align:middle">
+        107-86-19589<br>(주)소딕코리아　아사이 마사야<br>경기도 안양시 만안구 안양로 57 (안양동361)<br>도·소매·제조　공작기계
+      </td>
+      <td rowspan="2" style="font-size:10.5px;line-height:1.55;vertical-align:top">· 신 기계설치후 보증기간은 1년<br>· 신규 중고기계 설치, 시운전은 별도의 계산서를 참조<br>· 수리부품 무상보증 기간은 6개월<br>&nbsp;&nbsp;(단, 업체실수로 인한 보증기간내의 교환은 별도)</td>
+    </tr>
+    <tr>
+      <td class="center stampcell">${sig('sigCeo','날인',r.sigCeo)}</td>
+      <td class="center stampcell">${sig('sigMgr','날인',r.sigMgr)}</td>
+      <td class="center stampcell">${sig('sigStaff','날인',r.sigStaff)}</td>
+    </tr>
+  </table>
+
+  <div class="foot">
+    <div class="rowf"><span>본　사 : 경기도 안양시 만안구 안양로 57 (안양동361)</span><span>Tel : 02-807-4745, 4746　Fax : 02-806-4744</span></div>
+    <div class="rowf"><span>대구지점 : 대구광역시 북구 호국로 233(서변동)</span><span>Tel : 053-952-4741　Fax : 053-952-4740</span></div>
+  </div>`;
+}
+
+/* ---------- 폼 읽기 ---------- */
+let current={};
+function readForm(){
+  const s=$("sheet");
+  const rec={...current}; rec.quality={...(current.quality||{})};
+  s.querySelectorAll("[data-f]").forEach(el=>{
+    let v = el.isContentEditable ? el.innerText.replace(/\u00a0/g,' ') : el.value;
+    v=(v||"").replace(/\s+$/,"");
+    if(el.hasAttribute("data-money")||el.hasAttribute("data-calc")) rec[el.dataset.f]=num(v);
+    else rec[el.dataset.f]=v.trim();
+  });
+  s.querySelectorAll("[data-q]").forEach(el=>rec.quality[el.dataset.q]=el.value.trim());
+  rec.swRows=[];
+  s.querySelectorAll("[data-swk]").forEach(el=>{const i=+el.dataset.swk;rec.swRows[i]=rec.swRows[i]||{label:"",value:""};rec.swRows[i].label=el.value.trim();});
+  s.querySelectorAll("[data-swv]").forEach(el=>{const i=+el.dataset.swv;rec.swRows[i]=rec.swRows[i]||{label:"",value:""};rec.swRows[i].value=el.value.trim();});
+  s.querySelectorAll(".choice.on").forEach(c=>{
+    const name=c.dataset.name; if(!name||name.startsWith("_p_cost_"))return;
+    if(name.startsWith("q_"))rec.quality[name.slice(2)]=c.dataset.val;
+    else rec[name]=c.dataset.val;
+  });
+  rec.parts=[];
+  s.querySelectorAll("#partsBody .partrow").forEach(tr=>{
+    const p={};
+    tr.querySelectorAll("[data-p]").forEach(el=>{
+      p[el.dataset.p]= el.hasAttribute("data-money")? num(el.value) : el.value.trim();
+    });
+    const cp=tr.querySelector(".pick .choice.on"); p.cost=cp?cp.dataset.val:"";
+    rec.parts.push(p);
+  });
+  // 수식: 부품가격 = Σ(수량×단가), 합계 = 공임 + 부품가격
+  rec.partsCost=rec.parts.reduce((a,p)=>a+num(p.qty)*num(p.price),0);
+  rec.totalCost=num(rec.laborCost)+rec.partsCost;
+  return rec;
+}
+/* 금액 칸 실시간 계산 & 콤마 */
+function recalcMoney(){
+  const s=$("sheet");
+  let sum=0;
+  s.querySelectorAll("#partsBody .partrow").forEach(tr=>{
+    const q=num(tr.querySelector('[data-p="qty"]').value);
+    const pr=num(tr.querySelector('[data-p="price"]').value);
+    sum+=q*pr;
+  });
+  const labor=num((s.querySelector('[data-f="laborCost"]')||{}).value);
+  const pc=s.querySelector('[data-f="partsCost"]'); if(pc)pc.value=comma(sum);
+  const tc=s.querySelector('[data-f="totalCost"]'); if(tc)tc.value=comma(labor+sum);
+}
+
+/* ---------- 서명 패드 ---------- */
+let sigTarget=null,sigCtx=null,drawing=false,sigDirty=false;
+function openSig(name){
+  sigTarget=name;sigDirty=false;
+  const labels={sigApprove:"승인 서명",sigCeo:"사장 날인",sigMgr:"과장 날인",sigStaff:"담당 날인"};
+  $("sigTitle").textContent=labels[name]||"서명";
+  $("sigModal").classList.add("show");
+  const cv=$("sigCanvas");const rect=cv.parentElement.getBoundingClientRect();const dpr=window.devicePixelRatio||1;
+  cv.width=rect.width*dpr;cv.height=220*dpr;
+  sigCtx=cv.getContext("2d");sigCtx.scale(dpr,dpr);
+  sigCtx.lineWidth=2.4;sigCtx.lineCap="round";sigCtx.lineJoin="round";sigCtx.strokeStyle="#0b2a4a";
+  sigCtx.clearRect(0,0,cv.width,cv.height);
+}
+function sigPos(e){const cv=$("sigCanvas");const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top};}
+function initSigEvents(){
+  const cv=$("sigCanvas");
+  cv.addEventListener("pointerdown",e=>{e.preventDefault();drawing=true;sigDirty=true;const p=sigPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);});
+  cv.addEventListener("pointermove",e=>{if(!drawing)return;e.preventDefault();const p=sigPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();});
+  window.addEventListener("pointerup",()=>drawing=false);
+  $("sigClear").onclick=()=>{const c=$("sigCanvas");sigCtx.clearRect(0,0,c.width,c.height);sigDirty=false;};
+  $("sigCancel").onclick=()=>$("sigModal").classList.remove("show");
+  $("sigSave").onclick=()=>{
+    if(sigTarget){
+      const val=sigDirty?$("sigCanvas").toDataURL("image/png"):"";
+      current=readForm();current[sigTarget]=val;
+      $("sigModal").classList.remove("show");
+      $("sheet").innerHTML=buildSheetHTML(current);wireSheet();
+    }
+  };
+}
+
+/* ---------- 시트 이벤트 ---------- */
+function wireSheet(){
+  const s=$("sheet");
+  s.querySelectorAll(".choice").forEach(c=>{
+    c.onclick=()=>{
+      const wasOn=c.classList.contains("on");
+      c.parentElement.querySelectorAll(".choice").forEach(x=>x.classList.remove("on"));
+      if(!wasOn) c.classList.add("on");
+    };
+  });
+  s.querySelectorAll("[data-sig]").forEach(el=>el.onclick=()=>{current=readForm();openSig(el.dataset.sig);});
+  const modelInput=s.querySelector('[data-f="model"]');
+  if(modelInput) modelInput.addEventListener("change",()=>{
+    if(SW_TEMPLATES[modelInput.value.trim()]){current=readForm();$("sheet").innerHTML=buildSheetHTML(current);wireSheet();}
+  });
+  const addBtn=$("btnAddPart");
+  if(addBtn) addBtn.onclick=()=>{current=readForm();current.parts=current.parts||[];current.parts.push({});$("sheet").innerHTML=buildSheetHTML(current);wireSheet();};
+  // 금액/수량 → 실시간 계산, 금액칸은 blur 때 콤마
+  s.querySelectorAll('[data-money],[data-qty]').forEach(el=>{
+    el.addEventListener('input',recalcMoney);
+    if(el.hasAttribute('data-money')){
+      el.addEventListener('focus',()=>{el.value=num(el.value)||'';});
+      el.addEventListener('blur',()=>{el.value=comma(el.value);recalcMoney();});
+    }
+  });
+  recalcMoney();
+  const reqEl=s.querySelector('[data-f="requestContent"]');
+  if(reqEl) reqEl.addEventListener('input',layoutSheet);
+  layoutSheet();
+}
+/* 처리내용 박스를 오른쪽 '내부 표'의 실제 내용 높이에 맞춤 (바깥칸을 재면 되먹임 루프가 생겨서 안 줄어들었음) */
+function layoutSheet(){
+  const s=$("sheet");
+  const pTa=s.querySelector('[data-f="processContent"]');
+  const rTa=s.querySelector('[data-f="requestContent"]');
+  if(!pTa||!rTa) return;
+  const leftTd=pTa.closest('table').parentElement;
+  const tr=leftTd.parentElement;
+  const rightTd=tr.children[1];
+  if(!rightTd) return;
+  const rInner=rightTd.querySelector('table');   // 오른쪽 소프트웨어 표(내용 높이, 늘어나지 않음)
+  if(!rInner) return;
+  requestAnimationFrame(()=>{
+    if(rInner.offsetHeight===0) return;           // 화면에 안 보이면 패스
+    pTa.style.height='auto';
+    requestAnimationFrame(()=>{
+      const target=rInner.offsetHeight;
+      const reqRow=rTa.closest('tr').offsetHeight; // 의뢰내용 행 높이
+      const desired=target-reqRow-2;
+      pTa.style.minHeight=(desired>40?desired:40)+'px';
+    });
+  });
+}
+
+/* ============ 3) 화면 전환 / 목록 / 이력 ============ */
+let allReports=[],searchTerm="";
+function show(view){
+  ["listView","histView","formView"].forEach(v=>$(v).classList.add("hidden"));
+  $(view).classList.remove("hidden");
+  $("formBar").classList.toggle("hidden",view!=="formView");
+  $("searchWrap").classList.toggle("hidden",view!=="listView");
+  $("devbar").classList.toggle("hidden",view!=="listView");
+  window.scrollTo(0,0);
+  if(view==="formView"){layoutSheet();setTimeout(layoutSheet,200);}
+}
+async function loadList(){allReports=await dbGetAll();renderList();}
+
+/* ---------- 더미 데이터 (검색/이력 테스트용) ---------- */
+const DUMMY=[
+  {model:"TR160VR",hogi:"S088",customerHogi:"3호기",companyName:"우진플라텍",manager:"박정호",inspY:"2025",inspM:"12",inspD:"20",requestContent:"정기 점검 (형체부 급유)",processContent:"형체 링크 급유 및 유량 점검 완료. 이상 없음.",workStatus:"완료",costType:"무상",laborCost:0},
+  {model:"TR50VR",hogi:"S203",customerHogi:"1호기",companyName:"대성정밀",manager:"김상우",inspY:"2025",inspM:"11",inspD:"11",requestContent:"배럴 밴드히터 교체",processContent:"밴드히터 2개 교체, 온도 정상화 확인.",workStatus:"완료",costType:"유상",laborCost:150000,parts:[{name:"밴드히터",spec:"200V 2.5kW",qty:"2",price:"45000",lotNo:"BH-2211",cost:"유"}]},
+  {model:"TR250VR",hogi:"S077",customerHogi:"A라인",companyName:"삼호산업",manager:"이광수",inspY:"2026",inspM:"01",inspD:"30",requestContent:"성형품 온도 편차 발생",processContent:"노즐 히터 접촉 불량 → 재체결. 편차 해소.",workStatus:"완료",costType:"유상",laborCost:150000},
+  {model:"TR100VRG",hogi:"S145",customerHogi:"2호기",companyName:"한국JST",manager:"김현섭",inspY:"2026",inspM:"02",inspD:"10",requestContent:"히터 단선 점검",processContent:"3번 존 히터 단선 확인, 교체 완료.",workStatus:"완료",costType:"무상",laborCost:0,parts:[{name:"카트리지히터",spec:"φ10 L200",qty:"1",price:"38000",lotNo:"CH-0139",cost:"유"}]},
+  {model:"GL30VR",hogi:"G012",customerHogi:"소형1",companyName:"동양몰드",manager:"정우진",inspY:"2026",inspM:"03",inspD:"03",requestContent:"스크류 마모 점검",processContent:"스크류/실린더 마모량 측정. 재사용 가능.",workStatus:"완료",costType:"유상",laborCost:230000},
+  {model:"TR160VR",hogi:"S088",customerHogi:"3호기",companyName:"우진플라텍",manager:"박정호",inspY:"2026",inspM:"04",inspD:"15",requestContent:"형체 링크 마모, 소음",processContent:"링크핀 마모 확인. 부품 발주 필요 — 재방문 예정.",workStatus:"미완료",costType:"유상",laborCost:150000},
+  {model:"TR100VRG",hogi:"S145",customerHogi:"2호기",companyName:"한국JST",manager:"김현섭",inspY:"2026",inspM:"05",inspD:"26",requestContent:"유니트 전후진 실린더 누유 건",processContent:"실린더 분해·청소 후 패킹 교체 완료. 동작테스트 완료.",workStatus:"완료",costType:"유상",laborCost:150000,parts:[{name:"패킹세트",spec:"USH-32",qty:"1",price:"22000",lotNo:"PK-5521",cost:"유"}]},
+  {model:"TR100VRG",hogi:"S150",customerHogi:"5호기",companyName:"한국JST",manager:"김현섭",inspY:"2026",inspM:"05",inspD:"27",requestContent:"유압 실린더 패킹 누유",processContent:"패킹 교체 후 누유 해소. 압력 정상.",workStatus:"완료",costType:"유상",laborCost:150000},
+  {model:"TR30VR",hogi:"S310",customerHogi:"신규",companyName:"성진테크",manager:"최민석",inspY:"2026",inspM:"06",inspD:"12",requestContent:"유압 펌프 소음 발생",processContent:"펌프 커플링 마모 확인, 부품 수배 중.",workStatus:"미완료",costType:"유상",laborCost:0},
+  {model:"TR50VR",hogi:"S203",customerHogi:"1호기",companyName:"대성정밀",manager:"김상우",inspY:"2026",inspM:"06",inspD:"25",requestContent:"노즐 히터 교체 및 온도 캘리브레이션",processContent:"노즐 히터 교체, 온도 캘리브레이션 완료.",workStatus:"완료",costType:"유상",laborCost:150000,parts:[{name:"노즐히터",spec:"φ35",qty:"1",price:"52000",lotNo:"NH-0088",cost:"유"}]}
+];
+async function seedDummy(){
+  $("btnSeed").disabled=true;$("btnSeed").textContent="추가 중…";
+  try{
+    for(const d of DUMMY){
+      const rec=Object.assign({quality:{},swRows:[]},JSON.parse(JSON.stringify(d)));
+      rec.parts=rec.parts||[];
+      rec.partsCost=rec.parts.reduce((a,p)=>a+num(p.qty)*num(p.price),0);
+      rec.totalCost=num(rec.laborCost)+rec.partsCost;
+      await dbSave(rec);
+    }
+    await loadList();toast("더미 10개 추가됨");
+  }catch(e){console.error(e);toast("추가 실패: "+e.message);}
+  $("btnSeed").disabled=false;$("btnSeed").textContent="🧪 더미 10개 추가";
+}
+async function clearAll(){
+  if(!allReports.length){toast("삭제할 데이터가 없어요");return;}
+  if(!confirm(`전체 ${allReports.length}건을 모두 삭제할까요?`))return;
+  for(const r of [...allReports]) await dbDelete(r.id);
+  await loadList();toast("전체 삭제됨");
+}
+function renderList(){
+  const term=searchTerm.toLowerCase();
+  const groups={};
+  allReports.forEach(r=>{
+    const key=(r.model||"미지정")+"||"+(r.hogi||"");
+    if(!groups[key])groups[key]={model:r.model||"(모델 미입력)",hogi:r.hogi||"",items:[]};
+    groups[key].items.push(r);
+  });
+  let list=Object.values(groups);
+  if(term)list=list.filter(g=>(g.model+" "+g.hogi).toLowerCase().includes(term)||g.items.some(r=>((r.companyName||"")+(r.customerHogi||"")).toLowerCase().includes(term)));
+  list.sort((a,b)=>Math.max(...b.items.map(x=>x.updatedAt||0))-Math.max(...a.items.map(x=>x.updatedAt||0)));
+  const el=$("listView");
+  if(!allReports.length){
+    el.innerHTML=`<div class="empty"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>등록된 보고서가 없습니다.</p><p style="font-size:13px">우측 상단 <b>＋ 새 보고서</b>로 시작하세요.</p></div>`;return;
+  }
+  if(!list.length){el.innerHTML=`<div class="empty"><p>"${esc(searchTerm)}" 검색 결과가 없습니다.</p></div>`;return;}
+  el.innerHTML=list.map(g=>{
+    const last=g.items.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];
+    const dateTxt=last.inspY?`${last.inspY}.${last.inspM||''}.${last.inspD||''}`:new Date(last.updatedAt||0).toLocaleDateString('ko');
+    return `<div class="machine-card" data-key="${esc(g.model)}||${esc(g.hogi)}">
+      <div class="m-top"><div><span class="m-model">${esc(g.model)}</span> <span class="m-sn">${esc(g.hogi)}</span></div><span class="badge">이력 ${g.items.length}건</span></div>
+      <div class="m-meta">최근: ${esc(dateTxt)} · ${esc(last.companyName||'-')} ${last.customerHogi?`(고객호기 ${esc(last.customerHogi)})`:''}<br>${esc((last.requestContent||'').slice(0,50))}</div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".machine-card").forEach(c=>c.onclick=()=>openHistory(c.dataset.key));
+}
+function openHistory(key){
+  const [model,hogi]=key.split("||");
+  const items=allReports.filter(r=>(r.model||"")===model&&(r.hogi||"")===hogi).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const el=$("histView");
+  el.innerHTML=`<div class="hist-head">
+      <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1" id="hBack">← 목록</button>
+      <div class="h-model">${esc(model)} <span class="m-sn">${esc(hogi)}</span></div>
+      <span class="badge">총 ${items.length}건</span><div style="flex:1"></div>
+      <button class="btn dark" id="hNew">＋ 이 사출기 새 보고서</button>
+    </div>
+    ${items.map(r=>{
+      const dateTxt=r.inspY?`${r.inspY}.${r.inspM||''}.${r.inspD||''}`:new Date(r.updatedAt||0).toLocaleDateString('ko');
+      const done=r.workStatus==="완료";
+      return `<div class="rep-row" data-id="${r.id}"><div style="min-width:0"><span class="r-date">${esc(dateTxt)}</span> <span class="r-status ${done?'st-done':'st-open'}">${esc(r.workStatus||'미완료')}</span><div class="r-sum">${esc(r.requestContent||'(의뢰내용 없음)')}</div></div><div style="text-align:right;flex:none"><div style="font-size:13px">${esc(r.companyName||'')}</div><button class="btn warn no-print" style="padding:4px 10px;font-size:12px;margin-top:4px" data-del="${r.id}">삭제</button></div></div>`;
+    }).join("")}`;
+  show("histView");
+  $("hBack").onclick=()=>{show("listView");renderList();};
+  $("hNew").onclick=()=>newReport({model,hogi});
+  el.querySelectorAll(".rep-row").forEach(row=>row.onclick=e=>{if(e.target.dataset.del)return;editReport(row.dataset.id);});
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm("이 보고서를 삭제할까요?")){await dbDelete(b.dataset.del);await loadList();openHistory(key);toast("삭제됨");}});
+}
+function newReport(prefill){
+  current=Object.assign({quality:{},parts:[{},{},{},{},{}],swRows:Array.from({length:11},()=>({label:'',value:''}))},prefill||{});
+  $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
+}
+function editReport(id){
+  const r=allReports.find(x=>x.id===id);if(!r)return;
+  current=JSON.parse(JSON.stringify(r));
+  $("sheet").innerHTML=buildSheetHTML(current);wireSheet();show("formView");
+}
+async function saveReport(){
+  const rec=readForm();
+  if(!rec.model){toast("성형기 모델을 입력하세요");return;}
+  rec.parts=(rec.parts||[]).filter(p=>p.name||p.spec||p.qty||p.price||p.lotNo||p.cost);
+  $("btnSave").disabled=true;
+  try{const id=await dbSave(rec);current.id=id;await loadList();toast("저장 완료");}
+  catch(e){console.error(e);toast("저장 실패: "+e.message);}
+  $("btnSave").disabled=false;
+}
+
+/* ============ 4) 부트스트랩 ============ */
+window.addEventListener("DOMContentLoaded",async()=>{
+  initSigEvents();
+  $("btnHome").onclick=()=>{show("listView");renderList();};
+  $("btnNew").onclick=()=>newReport();
+  $("btnBack").onclick=()=>{show("listView");renderList();};
+  $("btnSave").onclick=saveReport;
+  $("btnSeed").onclick=seedDummy;
+  $("btnClear").onclick=clearAll;
+  $("btnPrint").onclick=()=>{current=readForm();$("sheet").innerHTML=buildSheetHTML(current);wireSheet();setTimeout(()=>window.print(),120);};
+  $("searchInput").addEventListener("input",e=>{searchTerm=e.target.value;renderList();});
+  await initDB();await loadList();show("listView");
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>layoutSheet());
+});
+</script>
+</body>
+</html>
