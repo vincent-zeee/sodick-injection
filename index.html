@@ -686,8 +686,16 @@ async function exportPDF(){
     let w=availW,h=canvas.height*availW/canvas.width;
     if(h>availH){h=availH;w=canvas.width*availH/canvas.height;}   // 세로가 넘치면 세로 기준으로 축소
     pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",(PW-w)/2,m,w,h);
-    const fname=("소딕보고서_"+(current.model||"")+"_"+(current.hogi||"")).replace(/\s+/g,"")+".pdf";
-    pdf.save(fname);
+    const safe=s=>(s||"").toString().trim().replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g,"");
+    const date=[current.inspY,current.inspM,current.inspD].filter(Boolean).join("-");
+    const fname=[
+      current.companyName,
+      current.model,
+      current.hogi?current.hogi+"호기":"",
+      current.customerHogi?current.customerHogi+"고객호기":"",
+      date
+    ].map(safe).filter(Boolean).join("_")+".pdf";
+    pdf.save(fname||"소딕보고서.pdf");
     toast("PDF 저장됨");
   }catch(e){console.error(e);toast("PDF 실패: "+e.message);}
   btn.disabled=false;btn.textContent=old;
