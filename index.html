@@ -4,10 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>소딕 설치·수리·작업 보고서</title>
+<!-- 홈 화면 설치용 (PWA / iOS) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14A83A">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="소딕 A/S">
 <style>
   :root{
     --ink:#111; --line:#333; --muted:#6b7280;
-    --bg:#eef1ef; --paper:#fff; --accent:#00913A; --accent-soft:#e6f4ea; --field:#fffbe8;
+    --bg:#eef1ef; --paper:#fff; --accent:#14A83A; --navy:#001659; --accent-soft:#e6f4ea; --field:#fffbe8;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
   html,body{background:var(--bg);color:var(--ink);
@@ -18,12 +26,14 @@
   .topbar{position:sticky;top:0;z-index:50;background:var(--accent);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap;}
   .topbar h1{font-size:15px;font-weight:700;letter-spacing:.5px;}
   .topbar .spacer{flex:1;}
-  .btn{border:none;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;background:#fff;color:var(--accent);}
+  .btn{border:none;border-radius:3px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;background:#fff;color:var(--accent);}
   .btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);}
   .btn.warn{background:#b3261e;color:#fff;}
   .btn.dark{background:var(--accent);color:#fff;}
+  .btn.top{background:#fff;color:var(--accent);border:1.5px solid var(--navy);}
+  .btn.bottom{background:var(--accent);color:#fff;border:1.5px solid var(--navy);}
   .btn:active{transform:translateY(1px);}
-  .search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:8px;padding:6px 10px;min-width:230px;flex:1;max-width:420px;}
+  .search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:3px;padding:6px 10px;min-width:230px;flex:1;max-width:420px;}
   .search input{border:none;outline:none;flex:1;font-size:14px;color:#111;background:transparent;}
   .search input::placeholder{color:#9aa1ab;}
   .search svg{flex:none;color:var(--muted);}
@@ -33,22 +43,22 @@
   .dot.on{background:#2e7d32;}
 
   /* list */
-  .machine-card{background:#fff;border:1px solid #dfe3e8;border-radius:12px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:box-shadow .15s;}
+  .machine-card{background:#fff;border:1px solid #dfe3e8;border-radius:4px;padding:14px 16px;margin-bottom:12px;cursor:pointer;transition:box-shadow .15s;}
   .machine-card:hover{box-shadow:0 3px 14px rgba(0,0,0,.08);}
   .machine-card .m-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;}
   .machine-card .m-model{font-size:17px;font-weight:800;}
   .machine-card .m-sn{font-size:13px;color:var(--muted);font-family:"Courier New",monospace;}
   .machine-card .m-meta{font-size:13px;color:#374151;margin-top:6px;}
-  .badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;}
+  .badge{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:3px;padding:2px 10px;font-size:12px;font-weight:700;}
   .empty{text-align:center;color:var(--muted);padding:60px 20px;}
   .empty svg{opacity:.4;margin-bottom:10px;}
   .hist-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
   .hist-head .h-model{font-size:20px;font-weight:800;}
-  .rep-row{background:#fff;border:1px solid #dfe3e8;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
+  .rep-row{background:#fff;border:1px solid #dfe3e8;border-radius:4px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
   .rep-row:hover{background:#fafbfc;}
   .rep-row .r-date{font-weight:700;font-variant-numeric:tabular-nums;}
   .rep-row .r-sum{font-size:13px;color:#374151;margin-top:3px;max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .r-status{font-size:12px;font-weight:700;padding:2px 9px;border-radius:6px;}
+  .r-status{font-size:12px;font-weight:700;padding:2px 9px;border-radius:3px;}
   .st-done{background:#e7f5e9;color:#1b7a2e;}
   .st-open{background:#fdeaea;color:#b3261e;}
 
@@ -80,11 +90,13 @@
   .pick .sep{color:#000;}
 
   /* chip choice (작업현황 / 비용) */
-  .chip{display:inline-block;padding:4px 16px;border:1.5px solid #b6bcc6;border-radius:7px;margin:2px 4px;cursor:pointer;font-weight:700;color:#7a828e;background:#fff;user-select:none;}
-  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .chip{display:inline-block;padding:4px 16px;border:1.5px solid #b6bcc6;border-radius:3px;margin:2px 4px;cursor:pointer;font-weight:700;color:#7a828e;background:#fff;user-select:none;}
+  .chip.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.2);}
 
   .sig{position:relative;height:46px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .sig img{max-height:44px;max-width:100%;}
+  .sig.tall{height:105px;}
+  .sig.tall img{max-height:100px;}
   .sig .ph{color:#b0b0b0;font-size:11px;}
   .stampcell{height:52px;}
   .ttl-bar{background:#f2f2f2;text-align:center;font-weight:800;letter-spacing:2px;padding:3px;border:1px solid #000;border-top:none;}
@@ -96,12 +108,12 @@
 
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:16px;}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;border-radius:14px;padding:16px;width:min(560px,96vw);}
+  .modal{background:#fff;border-radius:6px;padding:16px;width:min(560px,96vw);}
   .modal h3{font-size:16px;margin-bottom:10px;}
-  .padwrap{border:2px dashed #b8c0cc;border-radius:10px;background:#fcfcfd;touch-action:none;}
-  .padwrap canvas{display:block;width:100%;height:220px;border-radius:10px;}
+  .padwrap{border:2px dashed #b8c0cc;border-radius:4px;background:#fcfcfd;touch-action:none;}
+  .padwrap canvas{display:block;width:100%;height:220px;border-radius:4px;}
   .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:24px;font-size:14px;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:6px;font-size:14px;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;}
   .toast.show{opacity:1;}
   .hidden{display:none !important;}
 
@@ -126,14 +138,15 @@
 <body>
 
 <div class="topbar">
-  <h1>소딕 서비스 보고서</h1>
+  <img src="icons/logo.png" alt="Sodick" style="height:51px;display:block;margin:-10px 0">
+  <h1>서비스 보고서</h1>
   <div class="search no-print" id="searchWrap">
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><line x1="14" y1="14" x2="18" y2="18" stroke-linecap="round"/></svg>
     <input id="searchInput" placeholder="성형기 모델 · 호기(S/N) 검색">
   </div>
   <div class="spacer"></div>
-  <button class="btn ghost no-print" id="btnHome">목록</button>
-  <button class="btn no-print" id="btnNew">＋ 새 보고서</button>
+  <button class="btn top no-print" id="btnHome">목록</button>
+  <button class="btn top no-print" id="btnNew">＋ 새 보고서</button>
 </div>
 
 <div class="wrap">
@@ -150,10 +163,10 @@
 </div>
 
 <div class="formbar hidden" id="formBar">
-  <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1" id="btnBack">← 목록</button>
-  <button class="btn" id="btnPdf">📄 PDF 저장</button>
-  <button class="btn" id="btnPrint">🖨 인쇄</button>
-  <button class="btn dark" id="btnSave">저장</button>
+  <button class="btn bottom" id="btnBack">← 목록</button>
+  <button class="btn bottom" id="btnPdf">📄 PDF 저장</button>
+  <button class="btn bottom" id="btnPrint">🖨 인쇄</button>
+  <button class="btn bottom" id="btnSave">저장</button>
 </div>
 
 <div class="modal-bg" id="sigModal">
@@ -267,13 +280,15 @@ function partRow(p={}){
 
 function buildSheetHTML(r){
   const q=r.quality||{};
-  const sig=(name,label,cur)=>{const ok=cur&&/^data:image\//.test(cur);return `<div class="sig" data-sig="${name}">${ok?`<img src="${cur}">`:`<span class="ph">${label}</span>`}</div>`;};
+  const sig=(name,label,cur,cls="")=>{const ok=cur&&/^data:image\//.test(cur);return `<div class="sig ${cls}" data-sig="${name}">${ok?`<img src="${cur}">`:`<span class="ph">${label}</span>`}</div>`;};
   let swRows=(r.swRows&&r.swRows.length)?r.swRows.map(x=>({label:x.label||'',value:x.value||''})):Array.from({length:11},()=>({label:'',value:''}));
   const tpl=SW_TEMPLATES[(r.model||'').trim()];
   if(tpl&&tpl.length){
     for(let i=0;i<tpl.length;i++){ if(!swRows[i]) swRows[i]={label:'',value:''}; if(!swRows[i].label) swRows[i].label=tpl[i]; }
   }
-  const parts=(r.parts&&r.parts.length?r.parts:[{},{},{},{},{}]).map((p,i)=>({...p,_i:i}));
+  const baseParts=(r.parts&&r.parts.length?r.parts.slice():[]);
+  while(baseParts.length<5)baseParts.push({});
+  const parts=baseParts.map((p,i)=>({...p,_i:i}));
 
   return `
   <div class="s-title">
@@ -292,7 +307,7 @@ function buildSheetHTML(r){
     <tr>
       <td class="lab jf">회사명</td><td><input class="u field" data-f="companyName" value="${esc(r.companyName)}"></td>
       <td class="lab" rowspan="5">承認<br>(승인)</td>
-      <td rowspan="5" class="center stampcell">${sig('sigApprove','서명',r.sigApprove)}</td>
+      <td rowspan="5" class="center stampcell">${sig('sigApprove','서명',r.sigApprove,'tall')}</td>
       <td class="lab jf">성형기</td><td><input class="u field" data-f="model" value="${esc(r.model)}"></td>
       <td><input class="u field mono" data-f="hogi" value="${esc(r.hogi)}"></td><td class="lab sm jf">호기</td>
     </tr>
@@ -389,6 +404,7 @@ function buildSheetHTML(r){
     </tbody>
   </table>
   <div class="no-print" data-html2canvas-ignore="true" style="text-align:right;margin:3px 0 8px">
+    <button class="btn ghost" style="color:#b3261e;border-color:#e2b4b1;padding:4px 10px;font-size:12px" id="btnDelPart">－ 부품 줄 삭제</button>
     <button class="btn ghost" style="color:var(--accent);border-color:#cbd5e1;padding:4px 10px;font-size:12px" id="btnAddPart">＋ 부품 줄 추가</button>
   </div>
 
@@ -539,6 +555,16 @@ function wireSheet(){
   });
   const addBtn=$("btnAddPart");
   if(addBtn) addBtn.onclick=()=>{current=readForm();current.parts=current.parts||[];current.parts.push({});formDirty=true;$("sheet").innerHTML=buildSheetHTML(current);wireSheet();};
+  const delBtn=$("btnDelPart");
+  if(delBtn) delBtn.onclick=()=>{
+    current=readForm();const ps=current.parts||[];
+    if(ps.length<=5){toast("기본 5줄은 삭제할 수 없어요");return;}
+    const last=ps[ps.length-1];
+    const has=last&&(last.name||last.spec||last.qty||last.price||last.lotNo||last.cost);
+    if(has&&!confirm("마지막 줄에 입력된 내용이 있습니다. 삭제할까요?"))return;
+    ps.pop();formDirty=true;
+    $("sheet").innerHTML=buildSheetHTML(current);wireSheet();
+  };
   // 금액/수량 → 실시간 계산, 금액칸은 blur 때 콤마
   s.querySelectorAll('[data-money],[data-qty]').forEach(el=>{
     el.addEventListener('input',recalcMoney);
@@ -702,9 +728,14 @@ async function exportPDF(){
     // input 값을 속성에 반영해야 html2canvas가 글자를 그림
     sheet.querySelectorAll("input").forEach(i=>{ if(i.value!=="") i.setAttribute("value",i.value); });
     const canvas=await html2canvas(sheet,{scale:2,backgroundColor:"#ffffff",useCORS:true,windowWidth:sheet.scrollWidth,
-      onclone:doc=>{ // 인쇄물과 동일하게: 입력칸 노란 배경 제거, 화면 전용 요소 숨김
+      onclone:doc=>{ // 인쇄물과 동일하게: 입력칸 배경 제거, 화면 전용 요소 숨김, 칩은 흑백
         doc.querySelectorAll("#sheet .u.field").forEach(el=>el.style.background="transparent");
         doc.querySelectorAll("#sheet .no-print").forEach(el=>el.style.display="none");
+        doc.querySelectorAll("#sheet .chip").forEach(el=>{
+          if(el.classList.contains("on")){el.style.background="#000";el.style.borderColor="#000";el.style.color="#fff";}
+          else{el.style.opacity=".4";el.style.color="#000";el.style.borderColor="#000";}
+        });
+        doc.querySelectorAll("#sheet .choice:not(.on):not(.chip)").forEach(el=>el.style.opacity=".35");
       }});
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
@@ -743,7 +774,13 @@ window.addEventListener("beforeunload",e=>{
 window.addEventListener("DOMContentLoaded",async()=>{
   initSigEvents();
   $("btnHome").onclick=goList;
-  $("btnNew").onclick=()=>newReport();
+  $("btnNew").onclick=()=>{
+    if(!$("formView").classList.contains("hidden")&&formDirty){
+      if(!confirm("저장하지 않은 내용이 있습니다. 저장 없이 새 보고서를 작성할까요?"))return;
+      formDirty=false;
+    }
+    newReport();
+  };
   $("btnBack").onclick=goList;
   $("btnSave").onclick=saveReport;
   $("btnPdf").onclick=exportPDF;
